@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Transaksi Penjualan</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    body {
+      background: linear-gradient(135deg, #6a11cb, #2575fc);
+      color: white;
+    }
+    .container {
+      background-color: #ffffff;
+      border-radius: 8px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+      padding: 20px;
+    }
+    h1, h2, h3 {
+      color: #6a11cb; 
+    }
+    .total-section h3 {
+      font-weight: bold;
+      color: #2575fc; 
+    }
+    .card {
+      background-color: #ffffff;
+      border: 1px solid #bbdefb;
+      box-shadow: none;
+    }
+    .form-label {
+      color: #6a11cb;
+    }
+    .btn-primary {
+      background-color: #ffb300;
+      border-color: #ffb300;
+      color: #ffffff;
+    }
+    .btn-primary:hover {
+      background-color: #ffc107;
+      border-color: #ffc107;
+    }
+    .btn-success {
+      background-color: #2196f3;
+      border-color: #2196f3;
+      color: #ffffff;
+    }
+    .btn-success:hover {
+      background-color: #42a5f5;
+      border-color: #42a5f5;
+    }
+    .btn-danger {
+      background-color: #f44336;
+      border-color: #f44336;
+    }
+    .btn-danger:hover {
+      background-color: #ef5350;
+      border-color: #ef5350;
+    }
+    .table thead th {
+      background-color: #90caf9;
+      color: #1a237e;
+    }
+    .table tbody tr:nth-child(even) {
+      background-color: #e3f2fd;
+    }
+    .table tbody tr:nth-child(odd) {
+      background-color: #ffffff;
+    }
+    .name-class-info {
+      font-size: 1rem;
+      font-weight: 500;
+      color: #6a11cb;
+      text-align: right;
+      margin-right: 15px;
+    }
+    .info-group {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      line-height: 1.2;
+    }
+  </style>
+</head>
+
+<body class="bg-light">
+  <div class="container py-4">
+    <h1 class="mb-4 text-center">🛒 Transaksi Penjualan</h1>
+
+    <div class="card p-3 mb-4">
+      <div class="row g-3">
+        <div class="col-md-4">
+          <label for="pilihProduk" class="form-label">Pilih Produk</label>
+          <select id="pilihProduk" class="form-select"></select>
+        </div>
+        <div class="col-md-3">
+          <label for="hargaProduk" class="form-label">Harga</label>
+          <input type="text" id="hargaProduk" class="form-control" placeholder="Harga" readonly>
+        </div>
+        <div class="col-md-2">
+          <label for="jumlah" class="form-label">Jumlah</label>
+          <input type="number" id="jumlah" class="form-control" value="1" min="1">
+        </div>
+        <div class="col-md-3 d-flex align-items-end">
+          <button id="btnTambah" class="btn btn-primary w-100" onclick="tambahKeDetail()">Tambah</button>
+        </div>
+      </div>
+    </div>
+
+    <h2 class="h4 mb-3">Detail Belanja</h2>
+    <div class="card p-3">
+      <table class="table table-bordered bg-white mb-0">
+        <thead>
+          <tr>
+            <th>Nama Produk</th>
+            <th>Harga</th>
+            <th>Jumlah</th>
+            <th>Subtotal</th>
+            <th>Aksi</th>
+          </tr>
+        </thead>
+        <tbody id="detailList">
+        </tbody>
+      </table>
+      <hr>
+      <div class="total-section text-end">
+        <h3>Total: <span id="totalBelanja">Rp 0</span></h3>
+      </div>
+    </div>
+
+    <div class="d-flex justify-content-end align-items-center mt-4">
+      <div class="info-group">
+          <span class="name-class-info">Dibuat oleh : Vivaldi Adi</span>
+          <span class="name-class-info">Kelas : XII-4</span>
+      </div>
+      <button id="btnSimpan" class="btn btn-success btn-lg ms-3" onclick="simpanTransaksi()">Simpan Transaksi</button>
+    </div>
+  </div>
+
+  <script>
+    const SUPABASE_URL = "https://ioxehwbhntfhysraptin.supabase.co";
+    const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlveGVod2JobnRmaHlzcmFwdGluIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg2NzU3NzUsImV4cCI6MjA3NDI1MTc3NX0.78vo70pmwTbU3JnERgfNELWbzeYmoQVvHlykjmbKR5E";
+
+    const { createClient } = supabase;
+    const db = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    let produkData = [];
+    let detailBelanja = [];
+
+    async function loadProdukDropdown() {
+      const { data, error } = await db.from("produk").select("id, nama, harga, stok").order("nama", { ascending: true });
+      if (error) {
+        console.error("Gagal memuat produk:", error);
+        return;
+      }
+      produkData = data;
+      const select = document.getElementById("pilihProduk");
+      select.innerHTML = '<option value="" selected disabled>-- Pilih Produk --</option>';
+      data.forEach(item => {
+        if (item.stok > 0) {
+          const option = document.createElement("option");
+          option.value = item.id;
+          option.textContent = `${item.nama} (Stok: ${item.stok})`;
+          option.dataset.harga = item.harga;
+          option.dataset.stok = item.stok;
+          select.appendChild(option);
+        }
+      });
+    }
+
+    document.getElementById("pilihProduk").addEventListener("change", function() {
+      const selectedOption = this.options[this.selectedIndex];
+      if (selectedOption.value) {
+        const harga = selectedOption.dataset.harga;
+        document.getElementById("hargaProduk").value = `Rp ${Number(harga).toLocaleString()}`;
+      } else {
+        document.getElementById("hargaProduk").value = "";
+      }
+    });
+
+    function tambahKeDetail() {
+      const produkSelect = document.getElementById("pilihProduk");
+      const idProduk = produkSelect.value;
+      const jumlah = parseInt(document.getElementById("jumlah").value);
+
+      if (!idProduk) {
+        Swal.fire("Oops!", "Silakan pilih produk terlebih dahulu.", "warning");
+        return;
+      }
+
+      if (isNaN(jumlah) || jumlah <= 0) {
+        Swal.fire("Oops!", "Jumlah harus lebih dari 0.", "warning");
+        return;
+      }
+
+      const selectedOption = produkSelect.options[produkSelect.selectedIndex];
+      const namaProduk = selectedOption.text.split(' (')[0];
+      const harga = parseFloat(selectedOption.dataset.harga);
+      const stok = parseInt(selectedOption.dataset.stok);
+
+      if (jumlah > stok) {
+        Swal.fire("Stok Tidak Cukup!", `Stok ${namaProduk} hanya tersisa ${stok}.`, "error");
+        return;
+      }
+      
+      const itemAda = detailBelanja.find(item => item.idProduk == idProduk);
+      if(itemAda){
+          Swal.fire("Info", "Produk sudah ada di keranjang. Anda bisa mengubah jumlahnya di sana atau menghapusnya.", "info");
+          return;
+      }
+
+      const subtotal = harga * jumlah;
+
+      detailBelanja.push({
+        idProduk,
+        namaProduk,
+        harga,
+        jumlah,
+        subtotal,
+        stok
+      });
+
+      renderDetailTable();
+      resetForm();
+    }
+
+    function renderDetailTable() {
+      const list = document.getElementById("detailList");
+      list.innerHTML = "";
+      let total = 0;
+
+      detailBelanja.forEach((item, index) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${item.namaProduk}</td>
+          <td>Rp ${item.harga.toLocaleString()}</td>
+          <td>${item.jumlah}</td>
+          <td>Rp ${item.subtotal.toLocaleString()}</td>
+          <td>
+            <button class="btn btn-danger btn-sm" onclick="hapusDariDetail(${index})">Hapus</button>
+          </td>
+        `;
+        list.appendChild(tr);
+        total += item.subtotal;
+      });
+
+      document.getElementById("totalBelanja").textContent = `Rp ${total.toLocaleString()}`;
+    }
+
+    function hapusDariDetail(index) {
+      detailBelanja.splice(index, 1);
+      renderDetailTable();
+    }
+
+    function resetForm() {
+      document.getElementById("pilihProduk").selectedIndex = 0;
+      document.getElementById("hargaProduk").value = "";
+      document.getElementById("jumlah").value = 1;
+    }
+
+    async function simpanTransaksi() {
+      if (detailBelanja.length === 0) {
+        Swal.fire("Keranjang Kosong", "Silakan tambahkan produk terlebih dahulu.", "warning");
+        return;
+      }
+
+      const btn = document.getElementById("btnSimpan");
+      btn.disabled = true;
+      btn.textContent = "Menyimpan...";
+      
+      const totalHarga = detailBelanja.reduce((sum, item) => sum + item.subtotal, 0);
+
+      const { data: penjualanData, error: penjualanError } = await db
+        .from("penjualan")
+        .insert({ total_harga: totalHarga })
+        .select("id")
+        .single();
+
+      if (penjualanError) {
+        Swal.fire("Error", "Gagal menyimpan data penjualan: " + penjualanError.message, "error");
+        btn.disabled = false;
+        btn.textContent = "Simpan Transaksi";
+        return;
+      }
+
+      const idPenjualan = penjualanData.id;
+
+      const detailToInsert = detailBelanja.map(item => ({
+        id_penjualan: idPenjualan,
+        id_produk: item.idProduk,
+        jumlah: item.jumlah,
+        subtotal: item.subtotal
+      }));
+
+      const { error: detailError } = await db.from("detail_penjualan").insert(detailToInsert);
+
+      if (detailError) {
+        Swal.fire("Error", "Gagal menyimpan detail penjualan: " + detailError.message, "error");
+        btn.disabled = false;
+        btn.textContent = "Simpan Transaksi";
+        return;
+      }
+
+      for (const item of detailBelanja) {
+          const newStok = item.stok - item.jumlah;
+          await db.from('produk').update({ stok: newStok }).eq('id', item.idProduk);
+      }
+      
+      Swal.fire("Sukses!", "Transaksi berhasil disimpan.", "success");
+      
+      detailBelanja = [];
+      renderDetailTable();
+      loadProdukDropdown();
+      btn.disabled = false;
+      btn.textContent = "Simpan Transaksi";
+    }
+
+    window.onload = loadProdukDropdown;
+  </script>
+</body>
+</html>
