@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>AI Image Recognition</title>
+
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.12.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8/dist/teachablemachine-image.min.js"></script>
+
+<style>
+body {
+    font-family: 'Segoe UI', sans-serif;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    min-height: 100vh;
+    margin: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: #333;
+}
+.card {
+    background: #fff;
+    width: 380px;
+    padding: 20px;
+    border-radius: 14px;
+    box-shadow: 0 10px 25px rgba(0,0,0,.2);
+}
+h2 {
+    margin-top: 0;
+    color: #4a4a4a;
+}
+input {
+    margin: 10px 0;
+}
+img {
+    width: 100%;
+    border-radius: 10px;
+    margin-top: 10px;
+}
+.result {
+    margin-top: 15px;
+    text-align: left;
+}
+.bar {
+    background: #eee;
+    border-radius: 6px;
+    overflow: hidden;
+    margin-bottom: 6px;
+}
+.bar span {
+    display: block;
+    background: #667eea;
+    color: #fff;
+    padding: 4px;
+    font-size: 12px;
+}
+.identity {
+    font-size: 12px;
+    margin-top: 15px;
+    color: #666;
+    border-top: 1px dashed #ccc;
+    padding-top: 10px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="card">
+    <h2>AI Image Recognition</h2>
+    <p>Upload gambar untuk dikenali oleh AI</p>
+
+    <input type="file" accept="image/*" onchange="predictImage(event)">
+    <img id="preview">
+
+    <div class="result" id="result"></div>
+
+    <div class="identity">
+        <b>Nama:</b> Vivaldi<br>
+
+    </div>
+</div>
+
+<script>
+const MODEL_URL = "https://teachablemachine.withgoogle.com/models/fPS99DDpU/";
+let model;
+
+async function loadModel() {
+    model = await tmImage.load(
+        MODEL_URL + "model.json",
+        MODEL_URL + "metadata.json"
+    );
+}
+loadModel();
+
+async function predictImage(event) {
+    const img = document.getElementById("preview");
+    img.src = URL.createObjectURL(event.target.files[0]);
+
+    img.onload = async () => {
+        const predictions = await model.predict(img);
+        let html = "";
+
+        predictions.forEach(p => {
+            html += `
+                <div>${p.className} (${(p.probability*100).toFixed(2)}%)</div>
+                <div class="bar">
+                    <span style="width:${p.probability*100}%">
+                        ${(p.probability*100).toFixed(1)}%
+                    </span>
+                </div>
+            `;
+        });
+
+        document.getElementById("result").innerHTML = html;
+    };
+}
+</script>
+
+</body>
+</html>
